@@ -4,74 +4,61 @@ const process = std.process;
 const fmt = std.fmt;
 const mem = std.mem;
 
-const DRAFT_FILE_PATH = os.getenv("HOME") ++ "/projects/writing";
+const WriteError = error{
+    CreateFailed,
+    WriteFailed,
+    MissingOutputPath,
+};
 
 pub fn main() !void {
     // Get cmd line args
-    var allocator = std.heap.page_allocator;
+    const allocator = std.heap.page_allocator;
     const args = try process.argsAlloc(allocator);
     defer process.argsFree(allocator, args);
 
-    // generate date
-    const date = try getCurrentDate(&allocator);
-    defer allocator.free(date);
-
-    // if name provided in args, set name, else null
-    var name: ?[]const u8 = null;
-    if (args.len > 2) {
-        name = args[2];
+    if (args.len < 3) {
+        std.debug.print("Usage: {s} <command> [output_path]\n", .{args[0]});
+        return;
     }
 
-    // generate the full file name
-    const file_path = try generateFilePath(date, name);
-    defer allocator.free(file_path);
+    const command: []const u8 = args[1];
+    const output_path: []const u8 = args[2];
 
     // if cmd from args is draft, create draft file
-    if (mem.eql(u8, args[1], "draft")) {
-        try createDraftFile(file_path);
-
+    if (mem.eql(u8, command, "draft")) {
+        // Check if the output path is not an absolute path
+        if (!std.fs.path.isAbsolute(output_path)) {
+            std.debug.print("Error: Output path must be an absolute path\n", .{});
+            return;
+        }
+        try createDraftFile(output_path);
         const stdout = std.io.getStdOut().writer();
-        try stdout.print("{s}", .{file_path});
+        try stdout.print("{?s}", .{output_path});
+    } else {
+        std.debug.print("Unknown command: {s}\n", .{command});
     }
 }
 
-fn getCurrentDate(allocator: *std.mem.Allocator) ![]const u8 {
-    const time = try std.time.SystemTime.now();
-    const local_datetime = try std.time.LocalDateTime.fromSystemTime(time);
-
-    return try std.fmt.allocPrint(allocator, "{d:04}{d:02}{d:02}", .{
-        local_datetime.year,
-        local_datetime.month,
-        local_datetime.day,
-    });
-}
-
-fn fileWriteError(file_path: []const u8) noreturn {
-    std.debug.print("ERROR: Failed to open {s}\n", .{file_path});
-    os.exit(1);
-}
-
-fn createDraftFile(file_path: []const u8) !void {
-    const file = try std.fs.createFileAbsolute(file_path, .{});
+fn createDraftFile(file_path: []const u8) WriteError!void {
+    const file = std.fs.createFileAbsolute(file_path, .{}) catch {
+        std.debug.print("ERROR: Failed to create file {s}\n", .{file_path});
+        return WriteError.CreateFailed;
+    };
     defer file.close();
 
-    try file.writeAll("---\n");
-    try file.writeAll("title:\n");
-    try file.writeAll("description:\n");
-    try file.writeAll("date: YYYY-MM-DD\n");
-    try file.writeAll("hero:\n");
-    try file.writeAll("draft: true\n");
-    try .file.writeAll("---\n");
-}
+    const content =
+        \\---
+        \\title:
+        \\description:
+        \\date: YYYY-MM-DD
+        \\hero:
+        \\draft: true
+        \\---
+        \\
+    ;
 
-fn generateFilePath(date: []const u8, name: ?[]const u8) ![]u8 {
-    const file_name = if (name) |n| {
-        try fmt.allocPrint(std.heap.page_allocator, "{s}_{s}.md", .{ date, n });
-    } else {
-        try fmt.allocPrint(std.heap.page_allocator, "{s}.md", .{date});
+    file.writeAll(content) catch {
+        std.debug.print("ERROR: Failed to write to file {s}\n", .{file_path});
+        return WriteError.WriteFailed;
     };
-    defer std.heap.page_allocator.free(file_name);
-
-    const file_path = try std.fs.path.join(std.heap.page_allocator, &[_][]const u8{ DRAFT_FILE_PATH, file_name });
-    return file_path;
 }
