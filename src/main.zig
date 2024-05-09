@@ -10,6 +10,11 @@ const WriteError = error{
     MissingOutputPath,
 };
 
+const Command = enum {
+    Draft,
+    Unknown,
+};
+
 pub fn main() !void {
     // Get cmd line args
     const allocator = std.heap.page_allocator;
@@ -21,22 +26,32 @@ pub fn main() !void {
         return;
     }
 
-    const command: []const u8 = args[1];
+    const command = parseCommand(args[1]);
     const output_path: []const u8 = args[2];
 
-    // if cmd from args is draft, create draft file
-    if (mem.eql(u8, command, "draft")) {
-        // Check if the output path is not an absolute path
-        if (!std.fs.path.isAbsolute(output_path)) {
-            std.debug.print("Error: Output path must be an absolute path\n", .{});
-            return;
-        }
-        try createDraftFile(output_path);
-        const stdout = std.io.getStdOut().writer();
-        try stdout.print("{?s}", .{output_path});
-    } else {
-        std.debug.print("Unknown command: {s}\n", .{command});
+    switch (command) {
+        Command.Draft => try draftCmd(output_path),
+        else => std.debug.print("Unknown command: {s}\n", .{args[1]}),
     }
+}
+
+fn parseCommand(arg: []const u8) Command {
+    if (std.mem.eql(u8, arg, "draft")) {
+        return Command.Draft;
+    } else {
+        return Command.Unknown;
+    }
+}
+
+fn draftCmd(output_path: []const u8) !void {
+    if (!std.fs.path.isAbsolute(output_path)) {
+        std.debug.print("Error: Output path must be an absolute path\n", .{});
+        return;
+    }
+
+    try createDraftFile(output_path);
+    const stdout = std.io.getStdOut().writer();
+    try stdout.print("{?s}", .{output_path});
 }
 
 fn createDraftFile(file_path: []const u8) WriteError!void {
