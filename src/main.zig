@@ -4,7 +4,6 @@ const process = std.process;
 const fmt = std.fmt;
 const mem = std.mem;
 const draft = @import("cmd/draft.zig");
-const ts = @import("timestamp/ts.zig");
 const tests = std.testing;
 
 const Command = enum {
@@ -15,8 +14,8 @@ const Command = enum {
 
 pub fn main() !void {
     // Get cmd line args
-    var buffer: [1024]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator.init(buffer[0..]);
+    var buffer: [512]u8 = undefined;
+    var fba = std.heap.FixedBufferAllocator.init(&buffer);
     const allocator = fba.allocator();
 
     const args = try process.argsAlloc(allocator);
@@ -31,8 +30,8 @@ pub fn main() !void {
 
     switch (command) {
         Command.Draft => {
-            const output_path: []const u8 = args[2];
-            draft.draftCmd(output_path) catch {
+            const file_name: []const u8 = args[2];
+            defer draft.draftCmd(file_name) catch {
                 std.process.exit(1);
             };
         },
@@ -44,7 +43,7 @@ pub fn main() !void {
 fn helpMenu() void {
     std.debug.print(
         \\
-        \\Usage:  fig <command> [output_file_path]
+        \\Usage:  fig <command> [output_file_name]
         \\
         \\Commands:
         \\

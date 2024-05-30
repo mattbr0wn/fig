@@ -9,7 +9,10 @@ const WriteError = error{
     InvalidOutputPath,
 };
 
-pub fn draftCmd(output_path: []const u8) !void {
+pub fn draftCmd(file_name: []const u8) !void {
+    var buffer: [256]u8 = undefined;
+    const output_path = try getDraftFilePath(file_name, &buffer);
+
     if (!std.fs.path.isAbsolute(output_path)) {
         std.debug.print("Error: Output path must be an absolute path\n", .{});
         return WriteError.InvalidOutputPath;
@@ -18,7 +21,17 @@ pub fn draftCmd(output_path: []const u8) !void {
     try createDraftFile(output_path);
     std.debug.print("Created file\n", .{});
     const stdout = std.io.getStdOut().writer();
-    try stdout.print("{?s}", .{output_path});
+    try stdout.print("{s}\n", .{output_path});
+}
+
+fn getDraftFilePath(file_name: []const u8, buffer: *[256]u8) ![]const u8 {
+    const home = std.posix.getenv("HOME") orelse {
+        std.debug.print("HOME environment variable not found.\n", .{});
+        return error.MissingHomeEnvVar;
+    };
+
+    const file_path = try std.fmt.bufPrint(buffer, "{s}/projects/writing/{s}.md", .{ home, file_name });
+    return file_path;
 }
 
 fn createDraftFile(file_path: []const u8) WriteError!void {
