@@ -1,5 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
+const fs = std.fs;
+const mem = std.mem;
 
 const WriteError = error{
     CreateFailed,
@@ -42,5 +44,3 @@ fn createDraftFile(file_path: []const u8) WriteError!void {
         return WriteError.WriteFailed;
     };
 }
-
-//// TESTS ////

@@ -4,6 +4,8 @@ const process = std.process;
 const fmt = std.fmt;
 const mem = std.mem;
 const draft = @import("cmd/draft.zig");
+const ts = @import("timestamp/ts.zig");
+const tests = std.testing;
 
 const Command = enum {
     Draft,
@@ -41,6 +43,7 @@ pub fn main() !void {
 
 fn helpMenu() void {
     std.debug.print(
+        \\
         \\Usage:  fig <command> [output_file_path]
         \\
         \\Commands:
@@ -58,4 +61,19 @@ fn parseCommand(arg: []const u8) Command {
     } else {
         return Command.Unknown;
     }
+}
+
+test "parse draft command" {
+    const cmd = parseCommand("draft");
+    try tests.expectEqual(Command.Draft, cmd);
+}
+
+test "parse help command" {
+    const cmd = parseCommand("help");
+    try tests.expectEqual(Command.Help, cmd);
+}
+
+test "parse unknown command" {
+    const cmd = parseCommand("any");
+    try tests.expectEqual(Command.Unknown, cmd);
 }
